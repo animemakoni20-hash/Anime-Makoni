@@ -4,7 +4,7 @@ from aiogram import Router, F, Bot
 from aiogram.filters import CommandStart, CommandObject, StateFilter
 from aiogram.types import Message, CallbackQuery, ChatJoinRequest
 from aiogram.fsm.context import FSMContext
-from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from aiogram.exceptions import TelegramBadRequest
 
 from database.database import (
     add_user,
@@ -299,17 +299,21 @@ async def handle_category_click(callback: CallbackQuery):
             text += f"{category.description}\n\n"
         text += f"📊 Sahifa: <b>{page}/{total_pages}</b>"
 
-        await callback.message.edit_text(
-            text,
-            reply_markup=movies_list_kb(
-                movies=movies,
-                category_id=category_id,
-                page=page,
-                total_pages=total_pages,
-                parent_id=category.parent_id
-            ),
-            parse_mode="HTML"
-        )
+        try:
+            await callback.message.edit_text(
+                text,
+                reply_markup=movies_list_kb(
+                    movies=movies,
+                    category_id=category_id,
+                    page=page,
+                    total_pages=total_pages,
+                    parent_id=category.parent_id
+                ),
+                parse_mode="HTML"
+            )
+        except TelegramBadRequest as e:
+            if "message is not modified" not in str(e):
+                raise
 
     await callback.answer()
 
@@ -329,18 +333,21 @@ async def handle_category_pagination(callback: CallbackQuery):
         text += f"{category.description}\n\n"
     text += f"📊 Sahifa: <b>{page}/{total_pages}</b>"
 
-    await callback.message.edit_text(
-        text,
-        reply_markup=movies_list_kb(
-            movies=movies,
-            category_id=category_id,
-            page=page,
-            total_pages=total_pages,
-            parent_id=category.parent_id if category else None
-        ),
-        parse_mode="HTML"
-    )
-    await callback.answer()
+    try:
+        await callback.message.edit_text(
+            text,
+            reply_markup=movies_list_kb(
+                movies=movies,
+                category_id=category_id,
+                page=page,
+                total_pages=total_pages,
+                parent_id=category.parent_id
+            ),
+            parse_mode="HTML"
+        )
+    except TelegramBadRequest as e:
+        if "message is not modified" not in str(e):
+            raise
 
 
 @router.callback_query(F.data == "noop")
