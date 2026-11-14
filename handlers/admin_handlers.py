@@ -1571,45 +1571,127 @@ async def back_to_admin_main(callback: CallbackQuery):
     await callback.answer()
 
 
-PRIVATE_BASE_CHANNEL_ID = -1003584365605 # O'zingizning private baza kanal ID-sini qo'ying
-MY_CHANNEL = "@kinopooisk_uz"
+PRIVATE_BASE_CHANNEL_ID = -1003584365605
+MY_CHANNEL = "@AnimeMakoni_uz"
+
 
 
 def clean_and_parse_caption(raw_caption: str):
     if not raw_caption:
-        return "Kino", 1, None, f"🎬 {MY_CHANNEL}"
+        return "Kino", 1, None, ""
 
-    # 1. Keraksiz reklama, linklar va qavslarni ({}, [], ()) tozalash
+    cleaned = raw_caption.replace("\r", "\n")
+
+    # Username va havolalarni olib tashlash
+    cleaned = re.sub(r"@\w+|https?://\S+|t\.me/\S+", "", cleaned)
+
+    # Reklama va kanal ma'lumotlarini olib tashlash
     cleaned = re.sub(
-        r'(?i)\b(kanal|kanalimiz|manbaa|obuna|admin|tg|link|source)\b\s*[:\-]?\s*@?\w+',
-        '',
-        raw_caption
+        r"(?im)\b(kanal|kanalimiz|manbaa|manba|obuna|admin|tg|link|source)\b\s*[:\-]?\s*.*$",
+        "",
+        cleaned
     )
-    cleaned = re.sub(r'@\w+|https?://\S+|t\.me/\S+', '', cleaned)
-    cleaned = re.sub(r'[\{\}\[\]\(\)]', ' ', cleaned)
 
-    # 2. Postdagi ortiqcha kodlarni (Kod: 123) e'tiborga olmaymiz/olib tashlaymiz
-    cleaned = re.sub(r'(Код|ID|Kod):\s*\d+', '', cleaned, flags=re.IGNORECASE)
+    # Kodlarni olib tashlash
+    cleaned = re.sub(
+        r"(?i)\b(kod|id)\s*[:#\-]?\s*\d+\b",
+        "",
+        cleaned
+    )
 
-    # 3. Fasl (Season) raqamini aniqlash (2-fasl, 2 season, s2)
-    season_match = re.search(r'\b(\d+)\s*[-:]?\s*(?:fasl|sezon|season|s)\b', cleaned, re.IGNORECASE)
-    season_num = int(season_match.group(1)) if season_match else 1
+    # Fasl / sezon / bo'lim / mavsum aniqlash
+    season_patterns = [
+        r"\b(\d+)\s*[-:.]?\s*(?:fasl|sezon|season|bo['’`]?lim|mavsum)\b",
+        r"\b(?:fasl|sezon|season|bo['’`]?lim|mavsum)\s*[-:.]?\s*(\d+)\b",
+        r"\bseason\s*(\d+)\b",
+        r"\bs\s*(\d+)\b"
+    ]
 
-    # 4. Qism (Episode) raqamini aniqlash (1-qism, 1-seriya, 1-ep)
-    episode_match = re.search(r'\b(\d+)\s*[-:]?\s*(?:qism|seriya|ep)\b', cleaned, re.IGNORECASE)
+    season_num = 1
 
-    if episode_match:
-        episode_num = int(episode_match.group(1))
-    else:
-        episode_num = None
+    for pattern in season_patterns:
+        match = re.search(pattern, cleaned, re.IGNORECASE)
+        if match:
+            season_num = int(match.group(1))
+            break
 
-    # 5. Asosiy kino nomini tozalash (fasl, qism va keraksiz belgilardan)
-    title = re.sub(r'\b\d+\s*[-:]?\s*(?:fasl|sezon|season|s)\b', '', cleaned, flags=re.IGNORECASE)
-    title = re.sub(r'\b\d+\s*[-:]?\s*(?:qism|seriya|ep)\b', '', title, flags=re.IGNORECASE)
+    # Qism / seriya / episode aniqlash
+    episode_patterns = [
+        r"\b(\d+)\s*[-:.]?\s*(?:qism|seriya|episode|ep)\b",
+        r"\b(?:qism|seriya|episode|ep)\s*[-:.]?\s*(\d+)\b",
+        r"\be\s*(\d+)\b"
+    ]
 
-    # Kategoriya nomida ortiqcha belgilar va bo'shliqlarni tozalash
-    title = re.sub(r'[\/\\\-\_\:\🎬\-\>]', ' ', title)
-    title = re.sub(r'\s+', ' ', title).strip()
+    episode_num = None
+
+    for pattern in episode_patterns:
+        match = re.search(pattern, cleaned, re.IGNORECASE)
+        if match:
+            episode_num = int(match.group(1))
+            break
+
+    # Anime nomini bildiruvchi belgilar
+    title_marker = re.compile(
+        r"(?i)^\s*(?:"
+        r"anime\s+nomi|kino\s+nomi|film\s+nomi|"
+        r"multfilm\s+nomi|serial\s+nomi|"
+        r"nomi|nomlanishi|nomlanadi|nom|"
+        r"название|наименование|name|title"
+        r")\s*[:：\-–—]?\s*(.*)$"
+    )
+
+    lines = [line.strip() for line in cleaned.split("\n") if line.strip()]
+
+    title_parts = []
+    marker_found = False
+
+    for index, line in enumerate(lines):
+        match = title_marker.match(line)
+
+        if match:
+            marker_found = True
+
+            if match.group(1).strip():
+                title_parts.append(match.group(1).strip())
+
+            for next_line in lines[index + 1:]:
+                if re.search(
+                    r"(?i)\b(?:\d+\s*[-:.]?\s*(?:fasl|sezon|season|bo['’`]?lim|mavsum|qism|seriya|ep)|"
+                    r"(?:fasl|sezon|season|bo['’`]?lim|mavsum|qism|seriya|ep)\s*\d+|"
+                    r"kod|id|sifat|quality|til|language|yil|year)\b",
+                    next_line
+                ):
+                    break
+
+                title_parts.append(next_line)
+
+            break
+
+    # Belgilar topilmasa, caption matnidan nomni ajratish
+    if not marker_found:
+        title_parts = lines
+
+    title = " ".join(title_parts)
+
+    # Nom ichidan fasl va qism ma'lumotlarini olib tashlash
+    remove_patterns = [
+        r"\b\d+\s*[-:.]?\s*(?:fasl|sezon|season|bo['’`]?lim|mavsum)\b",
+        r"\b(?:fasl|sezon|season|bo['’`]?lim|mavsum)\s*[-:.]?\s*\d+\b",
+        r"\bseason\s*\d+\b",
+        r"\bs\s*\d+\b",
+        r"\b\d+\s*[-:.]?\s*(?:qism|seriya|episode|ep)\b",
+        r"\b(?:qism|seriya|episode|ep)\s*[-:.]?\s*\d+\b",
+        r"\be\s*\d+\b",
+        r"(?i)\b(?:kod|id)\s*[:#\-]?\s*\d+\b"
+    ]
+
+    for pattern in remove_patterns:
+        title = re.sub(pattern, " ", title, flags=re.IGNORECASE)
+
+    # Ortiqcha belgilar va bo'shliqlar
+    title = re.sub(r"[{}\[\]()]", " ", title)
+    title = re.sub(r"[\/\\\-_🎬📢⭐️🔥]", " ", title)
+    title = re.sub(r"\s+", " ", title).strip(" -:|_")
 
     if not title:
         title = "Kino"
@@ -1617,74 +1699,105 @@ def clean_and_parse_caption(raw_caption: str):
     return title[:255], season_num, episode_num, raw_caption
 
 
+# Parallel saqlashning oldini olish
+channel_post_lock = asyncio.Lock()
+
+
 @router.channel_post(F.video | F.document)
 async def handle_channel_post(message: types.Message):
-    # 🔒 FAQAT PRIVATE BAZA KANALIDAN OLISH
+
     if message.chat.id != PRIVATE_BASE_CHANNEL_ID:
         return
 
     video = message.video or message.document
+
     if not video:
         return
 
-    raw_caption = message.caption or ""
-    title, season_num, episode_num, _ = clean_and_parse_caption(raw_caption)
-    file_id = video.file_id
+    async with channel_post_lock:
+        try:
+            raw_caption = message.caption or ""
 
-    try:
-        # Kategoriya nomi
-        if season_num > 1:
-            base_category_name = f"{title} {season_num}-fasl"
-        else:
-            base_category_name = title
+            title, season_num, episode_num, _ = clean_and_parse_caption(
+                raw_caption
+            )
 
-        # --- MANA BU YERGA SIZ BERGAN KODNI QO'YASIZ ---
-        # Kategoriya bor-yo'qligini tekshiramiz, bo'lmasa avtomatik yaratamiz
-        all_categories = await db.get_all_categories()
-        category_id = next((cat.id for cat in all_categories if cat.name.strip().lower() == base_category_name.strip().lower()), None)
+            file_id = video.file_id
 
-        if not category_id:
-            # Agar bunday nomdagi kategoriya bo'lmasa, uni avtomatik ochamiz
-            new_cat = await db.add_category(name=base_category_name, description=f"{base_category_name} kategoriyasi")
-            category_id = new_cat.id
-        # -----------------------------------------------
+            # Kategoriya nomi
+            if season_num > 1:
+                base_category_name = f"{title} {season_num}-fasl"
+            else:
+                base_category_name = title
 
-        # 2. AGAR QISM RAQAMI MATNDA BO'LMASA -> BAZADAN SANAB OLGAN HOLDA AVTO-INCREMENT QILAMIZ
-        all_movies = await db.get_all_movies() if hasattr(db, 'get_all_movies') else []
+            # Kategoriyani tekshirish
+            all_categories = await db.get_all_categories()
 
-        if episode_num is None:
-            category_movies = [m for m in all_movies if m.category_id == category_id]
-            episode_num = len(category_movies) + 1  # 1-qism, 2-qism...
+            category = next(
+                (
+                    cat for cat in all_categories
+                    if cat.name.strip().casefold()
+                    == base_category_name.strip().casefold()
+                ),
+                None
+            )
 
-        # 3. KODNI AVTOMATIK DAVOM ETTIRISH (Masalan: 87, 88, 89...)
-        if all_movies:
-            max_code = max([m.code for m in all_movies if m.code is not None], default=0)
+            # Kategoriya mavjud bo'lmasa yaratish
+            if category is None:
+                category = await db.add_category(
+                    name=base_category_name,
+                    description=f"{base_category_name} kategoriyasi"
+                )
+
+            category_id = category.id
+
+            # Barcha kinolarni olish
+            all_movies = await db.get_all_movies()
+
+            # Qism raqamini avtomatik belgilash
+            if episode_num is None:
+                category_movies = [
+                    m for m in all_movies
+                    if m.category_id == category_id
+                ]
+                episode_num = len(category_movies) + 1
+
+            # Yangi kod
+            max_code = max(
+                (m.code for m in all_movies if m.code is not None),
+                default=0
+            )
+
             next_code = max_code + 1
-        else:
-            next_code = 1  # Agar bazada kino bo'lmasa 1 dan boshlanadi
 
-        # Formatlangan sarlavha va caption yaratamiz
-        movie_title = f"{base_category_name} {episode_num}-qism"
+            # Kino nomi
+            movie_title = f"{base_category_name} {episode_num}-qism"
 
-        if season_num > 1:
-            caption_info = f"{season_num}-fasl {episode_num}-qism"
-        else:
-            caption_info = f"{episode_num}-qism"
+            if season_num > 1:
+                caption_info = f"{season_num}-fasl {episode_num}-qism"
+            else:
+                caption_info = f"{episode_num}-qism"
 
-        formatted_caption = f"🎬 <b>{title}</b> | {caption_info}\n\n📢 Rasmiy kanalimiz: {MY_CHANNEL}"
+            formatted_caption = (
+                f"🎬 <b>{title}</b> | {caption_info}\n\n"
+                f"📢 Rasmiy kanalimiz: {MY_CHANNEL}"
+            )
 
-        # 4. BAZAGA SAQLASH (code=next_code bilan birga, kodli qidiruv ishlashi uchun)
-        movie = await db.add_movie(
-            code=next_code,  # <-- Kod saqlanadi (masalan: 87, 88...)
-            title=movie_title,
-            file_id=file_id,
-            category_id=category_id,
-            description=formatted_caption
-        )
-        print(f"✅ MUVAFFAQIYATLI SAQLANDI: [Kod: {next_code}] [{movie_title}] (Qism: {episode_num})")
+            # Bazaga saqlash
+            await db.add_movie(
+                code=next_code,
+                title=movie_title,
+                file_id=file_id,
+                category_id=category_id,
+                description=formatted_caption
+            )
 
-    except Exception as e:
-        print(f"❌ Saqlashda xatolik: {e}")
+            print(
+                f"✅ SAQLANDI: #{next_code} | {movie_title}"
+            )
+
+        except Exception as e:
+            print(f"❌ Saqlashda xatolik: {e}")
 
 
 @router.callback_query(F.data == "admin_cancel")
