@@ -1924,7 +1924,7 @@ async def process_select_category_for_post(callback: CallbackQuery, state: FSMCo
     )
 
     first_movie_code = movies[0].code
-    target_channel = "@kinopooisk_uz"
+    target_channel = "@AnimeMakoni_uz"
 
     try:
         await callback.bot.send_photo(
