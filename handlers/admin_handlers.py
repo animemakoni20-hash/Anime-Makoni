@@ -1571,7 +1571,7 @@ async def back_to_admin_main(callback: CallbackQuery):
     await callback.answer()
 
 
-PRIVATE_BASE_CHANNEL_ID = -1004381474910 # O'zingizning private baza kanal ID-sini qo'ying
+PRIVATE_BASE_CHANNEL_ID = -1003584365605 # O'zingizning private baza kanal ID-sini qo'ying
 MY_CHANNEL = "@kinopooisk_uz"
 
 
