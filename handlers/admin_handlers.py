@@ -551,10 +551,17 @@ async def list_top_movies(callback: CallbackQuery):
         reply_markup=admin_main_kb()
     )
     await callback.answer()
-
 # ==================== KATEGORIYALAR ====================
 # --- 1. KATEGORIYALAR RO'YXATI VA BO'LIMGA BIRIKTIRISH (TUSHIRISH) ---
 # --- KATEGORIYALARNI SAHIFALAB CHIQARISH VA BOSHQARISH ---
+
+
+def category_sort_key(category):
+    """Nomdagi raqamlarni ham son sifatida hisoblab, tabiiy tartibda saralaydi."""
+    return [
+        int(part) if part.isdigit() else part.casefold()
+        for part in re.split(r"(\d+)", category.name.strip())
+    ]
 
 @router.callback_query(F.data == "admin_list_categories")
 async def list_categories_redirect(callback: CallbackQuery):
@@ -577,7 +584,7 @@ async def show_categories_page(callback: CallbackQuery, page: int):
     PER_PAGE = 10
 
     # FAQAT Asosiy (parent_id == None) kategoriyalarni olamiz
-    categories = await get_main_categories()
+    categories = sorted(await get_main_categories(), key=category_sort_key)
 
     if not categories:
         await callback.answer("❌ Asosiy kategoriyalar mavjud emas!", show_alert=True)
@@ -668,7 +675,10 @@ async def view_category_content(callback: CallbackQuery):
     # Barcha kategoriyalarni olib, shu parent_id ga tegishlilarini va joriy kategoriyani ajratamiz
     all_categories = await get_all_categories()
     current_cat = next((c for c in all_categories if c.id == cat_id), None)
-    subcategories = [c for c in all_categories if c.parent_id == cat_id]
+    subcategories = sorted(
+        [c for c in all_categories if c.parent_id == cat_id],
+        key=category_sort_key
+    )
 
     if not current_cat:
         await callback.answer("❌ Kategoriya topilmadi!", show_alert=True)
@@ -977,7 +987,6 @@ async def add_category_finish(callback: CallbackQuery, state: FSMContext):
 
     await state.clear()
     await callback.answer()
-
 
 # ==================== KANALLAR ====================
 

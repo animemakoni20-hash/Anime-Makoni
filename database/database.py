@@ -1,6 +1,6 @@
 """Database operatsiyalari"""
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy import select, func, delete, update, text, or_, case
+from sqlalchemy import select, func, delete, update, text, or_, case, Integer
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 import config
@@ -530,35 +530,67 @@ async def get_last_broadcasts(limit: int = 5) -> List[Broadcast]:
         return result.scalars().all()
 
 async def get_all_movies_by_category(category_id: int) -> List[Movie]:
-    """Ma'lum bir ost-kategoriyaga tegishli BARCHA kinolar/qismlarni kodi bo'yicha tartiblab olish"""
+    """Anime qismlarini qism raqami bo'yicha tartiblash"""
     async with AsyncSessionLocal() as session:
+        episode_number = func.substring(
+            Movie.title, r"([0-9]+)-qism"
+        ).cast(Integer)
+
         result = await session.execute(
             select(Movie)
             .where(Movie.category_id == category_id)
-            .order_by(Movie.code.asc())
+            .order_by(
+                episode_number.asc().nulls_last(),
+                Movie.code.asc()
+            )
         )
         return result.scalars().all()
 
 
-async def get_movies_by_category_paginated(category_id: int, page: int = 1, per_page: int = 10) -> Tuple[List[Movie], int]:
-    """Kategoriya bo'yicha kinolarni sahifalab olish"""
+
+async def get_movies_by_category_paginated(
+    category_id: int,
+    page: int = 1,
+    per_page: int = 10
+) -> Tuple[List[Movie], int]:
+    """Anime qismlarini raqam bo'yicha sahifalab olish"""
     async with AsyncSessionLocal() as session:
         offset = (page - 1) * per_page
 
-        count_stmt = select(func.count(Movie.id)).where(Movie.category_id == category_id)
+        count_stmt = select(func.count(Movie.id)).where(
+            Movie.category_id == category_id
+        )
         total_count = (await session.execute(count_stmt)).scalar_one()
+
+        # Qism raqamini turli formatlardan ajratib olish
+        episode_number = func.coalesce(
+            func.substring(Movie.title, r'([0-9]+)\s*-\s*qism').cast(Integer),
+            func.substring(Movie.title, r'qism\s*-\s*([0-9]+)').cast(Integer),
+            func.substring(Movie.title, r'[\[\(\{]\s*([0-9]+)\s*[\]\)\}]').cast(Integer),
+            func.substring(Movie.title, r'([0-9]+)').cast(Integer)
+        )
 
         stmt = (
             select(Movie)
             .where(Movie.category_id == category_id)
-            .order_by(Movie.code.asc())
+            .order_by(
+                episode_number.asc().nulls_last(),
+                Movie.code.asc()
+            )
             .offset(offset)
             .limit(per_page)
         )
+
         movies = (await session.execute(stmt)).scalars().all()
 
-        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+        total_pages = (
+            (total_count + per_page - 1) // per_page
+            if total_count > 0 else 1
+        )
+
         return movies, total_pages
+
+
 
 async def get_main_categories_paginated(page: int = 1, per_page: int = 10):
     """Bosh kategoriyalarni sahifalab olish"""

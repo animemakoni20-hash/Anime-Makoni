@@ -18,10 +18,6 @@ from database.database import (
     increment_movie_views,
     get_category_by_id,
     get_not_subscribed_channels,
-    get_total_users,
-    get_total_movies,
-    get_total_views,
-    get_top_movies,
     add_pending_request,
     search_movies_smart,
     add_movie_request
