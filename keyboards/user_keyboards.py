@@ -197,6 +197,64 @@ def search_results_kb(movies: List[Movie], search_query: str, page: int, total_p
     return builder.as_markup()
 
 
+def search_categories_kb(
+    categories: List[Category],
+    search_query: str,
+    page: int,
+    total_pages: int
+) -> InlineKeyboardMarkup:
+
+    builder = InlineKeyboardBuilder()
+
+    for category in categories:
+        builder.button(
+            text=f"📂 {category.name}",
+            callback_data=f"category_{category.id}"
+        )
+
+    builder.adjust(1)
+
+    safe_query = search_query[:20]
+
+    nav_buttons = []
+
+    if page > 1:
+        nav_buttons.append(
+            InlineKeyboardButton(
+                text="◀️ Oldingi",
+                callback_data=f"ssearch_{safe_query}_{page-1}"
+            )
+        )
+
+    if total_pages > 1:
+        nav_buttons.append(
+            InlineKeyboardButton(
+                text=f"📄 {page}/{total_pages}",
+                callback_data="noop"
+            )
+        )
+
+    if page < total_pages:
+        nav_buttons.append(
+            InlineKeyboardButton(
+                text="Keyingi ➡️",
+                callback_data=f"ssearch_{safe_query}_{page+1}"
+            )
+        )
+
+    if nav_buttons:
+        builder.row(*nav_buttons)
+
+    builder.row(
+        InlineKeyboardButton(
+            text="🏠 Bosh menyu",
+            callback_data="main_menu"
+        )
+    )
+
+    return builder.as_markup()
+
+
 def missing_movie_kb(search_query: str) -> InlineKeyboardMarkup:
     """Kino topilmaganda chiqadigan 'Kino so'rash' klaviaturasi"""
     builder = InlineKeyboardBuilder()

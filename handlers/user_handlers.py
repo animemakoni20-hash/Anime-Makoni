@@ -19,7 +19,7 @@ from database.database import (
     get_category_by_id,
     get_not_subscribed_channels,
     add_pending_request,
-    search_movies_smart,
+    search_categories_smart,
     add_movie_request
 )
 from keyboards.user_keyboards import (
@@ -28,7 +28,7 @@ from keyboards.user_keyboards import (
     movies_list_kb,
     movie_detail_kb,
     subscription_kb,
-    search_results_kb,
+    search_categories_kb,
     missing_movie_kb
 )
 import logging
@@ -538,23 +538,31 @@ async def search_button_handler(message: Message):
 
 @router.callback_query(F.data.startswith("ssearch_"))
 async def handle_smart_search_pagination(callback: CallbackQuery):
-    """Aqlli qidiruv sahifalanishi"""
     data_parts = callback.data.split("_")
-    search_query = data_parts[1]
-    page = int(data_parts[2])
+    search_query = "_".join(data_parts[1:-1])
+    page = int(data_parts[-1])
 
-    movies, total_pages = await search_movies_smart(search_query, page=page, per_page=10)
+    categories, total_pages = await search_categories_smart(
+        search_query, page=page, per_page=10
+    )
 
-    if not movies:
+    if not categories:
         await callback.answer("Hech qanday natija topilmadi.", show_alert=True)
         return
 
-    text = f"🔍 <b>'{search_query}'</b> bo'yicha qidiruv natijalari:\n\n📊 Sahifa: <b>{page}/{total_pages}</b>"
+    text = (
+        f"🔍 <b>'{search_query}'</b> bo'yicha kategoriyalar:\n\n"
+        f"📊 Sahifa: <b>{page}/{total_pages}</b>"
+    )
+
     await callback.message.edit_text(
         text,
-        reply_markup=search_results_kb(movies, search_query, page, total_pages),
+        reply_markup=search_categories_kb(
+            categories, search_query, page, total_pages
+        ),
         parse_mode="HTML"
     )
+
     await callback.answer()
 
 
@@ -596,20 +604,29 @@ async def text_smart_search_handler(message: Message, bot: Bot):
     if query.isdigit():
         return
 
-    movies, total_pages = await search_movies_smart(query, page=1, per_page=10)
+    categories, total_pages = await search_categories_smart(
+        query, page=1, per_page=10
+    )
 
-    if movies:
-        text = f"🔍 <b>'{query}'</b> bo'yicha topilgan kinolar:\n\n📊 Sahifa: <b>1/{total_pages}</b>"
+    if categories:
+        text = (
+            f"🔍 <b>'{query}'</b> bo'yicha topilgan kategoriyalar:\n\n"
+            f"📊 Sahifa: <b>1/{total_pages}</b>"
+        )
+
         await message.answer(
             text,
-            reply_markup=search_results_kb(movies, query, page=1, total_pages=total_pages),
+            reply_markup=search_categories_kb(
+                categories, query, page=1, total_pages=total_pages
+            ),
             parse_mode="HTML"
         )
     else:
         text = (
-            f"❌ <b>'{query}'</b> bo'yicha hech qanday kino topilmadi.\n\n"
+            f"❌ <b>'{query}'</b> bo'yicha hech qanday kategoriya topilmadi.\n\n"
             "Quyidagi tugmani bosib, kino qo'shilishini so'rashingiz mumkin:"
         )
+
         await message.answer(
             text,
             reply_markup=missing_movie_kb(query),

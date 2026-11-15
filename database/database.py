@@ -336,6 +336,84 @@ async def get_category_by_id(category_id: int) -> Optional[Category]:
         )
         return result.scalar_one_or_none()
 
+async def search_categories_smart(
+    search_query: str,
+    page: int = 1,
+    per_page: int = 10
+) -> Tuple[List[Category], int]:
+
+    async with AsyncSessionLocal() as session:
+        query = " ".join(search_query.strip().split())
+        normalized_query = "".join(
+            ch for ch in query.lower() if ch.isalnum()
+        )
+
+        if not normalized_query:
+            return [], 1
+
+        page = max(1, page)
+        per_page = max(1, per_page)
+        offset = (page - 1) * per_page
+
+        normalized_name = func.regexp_replace(
+            func.lower(Category.name),
+            r"[^[:alnum:]]",
+            "",
+            "g"
+        )
+
+        if engine.dialect.name == "postgresql":
+            await session.execute(text(
+                "SET LOCAL pg_trgm.similarity_threshold = 0.15"
+            ))
+
+            condition = or_(
+                normalized_name.ilike(f"%{normalized_query}%"),
+                normalized_name.op("%")(normalized_query),
+                Category.name.op("%")(query)
+            )
+
+            similarity_order = func.similarity(
+                normalized_name, normalized_query
+            ).desc()
+
+        else:
+            condition = Category.name.ilike(f"%{query}%")
+            similarity_order = Category.id.desc()
+
+        relevance_order = case(
+            (normalized_name == normalized_query, 0),
+            (normalized_name.ilike(f"%{normalized_query}%"), 1),
+            else_=2
+        )
+
+        count_stmt = (
+            select(func.count(Category.id))
+            .where(condition)
+        )
+        total_count = (await session.execute(count_stmt)).scalar_one()
+
+        stmt = (
+            select(Category)
+            .where(condition)
+            .order_by(
+                relevance_order,
+                similarity_order,
+                Category.id.asc()
+            )
+            .offset(offset)
+            .limit(per_page)
+        )
+
+        categories = (await session.execute(stmt)).scalars().all()
+
+        total_pages = (
+            (total_count + per_page - 1) // per_page
+            if total_count else 1
+        )
+
+        return categories, total_pages
+
 
 async def delete_category_by_id(category_id: int) -> bool:
     """Kategoriyani ID bo'yicha o'chirish"""
