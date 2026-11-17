@@ -1610,8 +1610,8 @@ def clean_and_parse_caption(raw_caption: str):
 
     # Fasl / sezon / bo'lim / mavsum aniqlash
     season_patterns = [
-        r"\b(\d+)\s*[-:.]?\s*(?:fasl|sezon|season|bo['’`]?lim|mavsum)\b",
-        r"\b(?:fasl|sezon|season|bo['’`]?lim|mavsum)\s*[-:.]?\s*(\d+)\b",
+        r"\b(\d+)\s*[-:.]?\s*(?:fasl|sezon|season|mavsum)\b",
+        r"\b(?:fasl|sezon|season|mavsum)\s*[-:.]?\s*(\d+)\b",
         r"\bseason\s*(\d+)\b",
         r"\bs\s*(\d+)\b"
     ]
@@ -1665,8 +1665,8 @@ def clean_and_parse_caption(raw_caption: str):
 
             for next_line in lines[index + 1:]:
                 if re.search(
-                    r"(?i)\b(?:\d+\s*[-:.]?\s*(?:fasl|sezon|season|bo['’`]?lim|mavsum|qism|seriya|ep)|"
-                    r"(?:fasl|sezon|season|bo['’`]?lim|mavsum|qism|seriya|ep)\s*\d+|"
+                    r"(?i)\b(?:\d+\s*[-:.]?\s*(?:fasl|sezon|season|mavsum|qism|seriya|ep)|"
+                    r"(?:fasl|sezon|season|mavsum|qism|seriya|ep)\s*\d+|"
                     r"kod|id|sifat|quality|til|language|yil|year)\b",
                     next_line
                 ):
@@ -1684,13 +1684,13 @@ def clean_and_parse_caption(raw_caption: str):
 
     # Nom ichidan fasl va qism ma'lumotlarini olib tashlash
     remove_patterns = [
-        r"\b\d+\s*[-:.]?\s*(?:fasl|sezon|season|bo['’`]?lim|mavsum)\b",
-        r"\b(?:fasl|sezon|season|bo['’`]?lim|mavsum)\s*[-:.]?\s*\d+\b",
+        r"\b\d+\s*[-:.]?\s*(?:fasl|sezon|season|mavsum)\b",
+        r"\b(?:fasl|sezon|season|mavsum)\s*[-:.]?\s*\d+\b",
         r"\bseason\s*\d+\b",
         r"\bs\s*\d+\b",
         r"\b\d+\s*[-:.]?\s*(?:qism|seriya|episode|ep)\b",
         r"\b(?:qism|seriya|episode|ep)\s*[-:.]?\s*\d+\b",
-        r"\be\s*\d+\b",
+        r"\be\s*(\d+)\b",
         r"(?i)\b(?:kod|id)\s*[:#\-]?\s*\d+\b"
     ]
 
